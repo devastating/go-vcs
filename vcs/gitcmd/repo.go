@@ -637,6 +637,20 @@ func (r *Repository) fetchRemote(repoDir string) error {
 }
 
 func (r *Repository) UpdateEverything(opt vcs.RemoteOpts) (*vcs.UpdateResult, error) {
+	stderr, err := r.RunUpdateEverythingCmd(opt)
+	if err != nil {
+		return nil, fmt.Errorf("exec `git remote update` failed: %v. Stderr was:\n\n%s", err, string(stderr))
+	}
+	result, err := parseRemoteUpdate(stderr)
+	if err != nil {
+		return nil, fmt.Errorf("parsing output of `git remote update` failed: %v", err)
+	}
+	return &result, nil
+}
+
+// RunUpdateEverythingCmd runs `git fetch -v` command and
+// returns stderr and error from running the command
+func (r *Repository) RunUpdateEverythingCmd(opt vcs.RemoteOpts) ([]byte, error) {
 	r.editLock.Lock()
 	defer r.editLock.Unlock()
 
@@ -682,14 +696,7 @@ func (r *Repository) UpdateEverything(opt vcs.RemoteOpts) (*vcs.UpdateResult, er
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	err := cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf("exec `git remote update` failed: %v. Stderr was:\n\n%s", err, stderr.String())
-	}
-	result, err := parseRemoteUpdate(stderr.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("parsing output of `git remote update` failed: %v", err)
-	}
-	return &result, nil
+	return stderr.Bytes(), err
 }
 
 func (r *Repository) BlameFile(path string, opt *vcs.BlameOptions) ([]*vcs.Hunk, error) {
